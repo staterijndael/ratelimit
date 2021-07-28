@@ -62,17 +62,26 @@ func run(args *Args) {
 				wg.Done()
 			}()
 
-			cmd := exec.Command(command, opts...)
-
-			cmd.Stdout = os.Stdout
-			err := cmd.Run()
+			err := shellout(command, opts)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
+
 		}(args.Command, replacedOpts)
 	}
 	wg.Wait()
+}
+
+func shellout(command string, opts []string) error {
+	cmd := exec.Command(command, opts...)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Run()
+
+	return err
 }
 
 func (a *Args) fillRateChannel() chan bool {
