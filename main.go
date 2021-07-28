@@ -35,29 +35,12 @@ func main() {
 }
 
 func run(args *Args) {
-	rateLimitChan := make(chan bool, args.InFlight)
-	for i := 0; i < args.InFlight; i++ {
-		rateLimitChan <- true
-	}
 
-	go func() {
-		tickChan := time.Tick(time.Second / time.Duration(args.Rate))
+	rateLimitChan := args.fillRateChannel()
 
-		for range tickChan {
-			for i := 0; i < args.InFlight; i++ {
-				if len(rateLimitChan) == args.InFlight {
-					break
-				}
+	args.rateChannelTicker(rateLimitChan)
 
-				rateLimitChan <- true
-			}
-		}
-	}()
-
-	inflightLimitChan := make(chan bool, args.InFlight)
-	for i := 0; i < args.InFlight; i++ {
-		inflightLimitChan <- true
-	}
+	inflightLimitChan := args.fillInflightChannel()
 
 	wg := sync.WaitGroup{}
 
@@ -90,6 +73,40 @@ func run(args *Args) {
 		}(args.Command, replacedOpts)
 	}
 	wg.Wait()
+}
+
+func (a *Args) fillRateChannel() chan bool {
+	rateLimitChan := make(chan bool, a.InFlight)
+	for i := 0; i < a.InFlight; i++ {
+		rateLimitChan <- true
+	}
+
+	return rateLimitChan
+}
+
+func (a *Args) rateChannelTicker(rateLimitChan chan bool) {
+	go func() {
+		tickChan := time.Tick(time.Second / time.Duration(a.Rate))
+
+		for range tickChan {
+			for i := 0; i < a.InFlight; i++ {
+				if len(rateLimitChan) == a.InFlight {
+					break
+				}
+
+				rateLimitChan <- true
+			}
+		}
+	}()
+}
+
+func (a *Args) fillInflightChannel() chan bool {
+	inflightLimitChan := make(chan bool, a.InFlight)
+	for i := 0; i < a.InFlight; i++ {
+		inflightLimitChan <- true
+	}
+
+	return inflightLimitChan
 }
 
 func getArgs() (*Args, error) {
